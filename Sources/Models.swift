@@ -1,6 +1,18 @@
 import Foundation
 import CoreGraphics
 
+enum InterfaceTheme: String, Codable, CaseIterable, Identifiable {
+    case system, dark, light
+    var id: String { rawValue }
+    var title: String { rawValue.capitalized }
+}
+
+enum AccentTheme: String, Codable, CaseIterable, Identifiable {
+    case moss, twilight, ember
+    var id: String { rawValue }
+    var title: String { rawValue.capitalized }
+}
+
 struct Clip: Codable, Identifiable, Equatable {
     var id: UUID
     var title: String
@@ -52,6 +64,9 @@ struct LibraryState: Codable {
     var pauseOnLowPower = true
     // Optional so collections saved before 1.0.1 still decode without a migration.
     var fillScreen: Bool? = nil
+    // Optional so collections made before themes continue to open unchanged.
+    var interfaceTheme: InterfaceTheme? = nil
+    var accentTheme: AccentTheme? = nil
 }
 
 enum LoopTime {
