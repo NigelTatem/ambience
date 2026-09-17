@@ -4,6 +4,7 @@ import Combine
 import IOKit.ps
 import ServiceManagement
 import UniformTypeIdentifiers
+import SwiftUI
 
 @MainActor
 final class AppModel: ObservableObject {
@@ -12,12 +13,15 @@ final class AppModel: ObservableObject {
     @Published private(set) var status = "Add a video to begin"
     @Published private(set) var loginEnabled = false
     @Published private(set) var desktopAspectRatio: CGFloat = 1.6
+    @Published var showingPipGuide = false
     @Published var message: String?
     let engine = WallpaperEngine()
     let root: URL
+    let dropZone: URL
     private let stateURL: URL
     private var observers: [NSObjectProtocol] = []
     private var powerTimer: Timer?
+    private var dropZoneTimer: Timer?
     private var sleeping = false
     private var displaySleeping = false
     private var sessionInactive = false
@@ -29,8 +33,10 @@ final class AppModel: ObservableObject {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         root = support.appendingPathComponent("Ambience", isDirectory: true)
         stateURL = root.appendingPathComponent("library.json")
+        dropZone = root.appendingPathComponent("Drop Zone", isDirectory: true)
         do {
             try FileManager.default.createDirectory(at: root.appendingPathComponent("Videos"), withIntermediateDirectories: true)
+            try FileManager.default.createDirectory(at: dropZone, withIntermediateDirectories: true)
             if FileManager.default.fileExists(atPath: stateURL.path) {
                 state = try JSONDecoder().decode(LibraryState.self, from: Data(contentsOf: stateURL))
                 guard state.clips.allSatisfy({
@@ -78,6 +84,13 @@ final class AppModel: ObservableObject {
         timer.tolerance = 10
         RunLoop.main.add(timer, forMode: .common)
         powerTimer = timer
+        let importTimer = Timer(timeInterval: 3, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.scanDropZone() }
+        }
+        importTimer.tolerance = 1
+        RunLoop.main.add(importTimer, forMode: .common)
+        dropZoneTimer = importTimer
+        DispatchQueue.main.async { [weak self] in self?.scanDropZone() }
     }
 
     func start() { if storageAvailable, selected != nil { loadSelected() } }
@@ -121,7 +134,8 @@ final class AppModel: ObservableObject {
         return true
     }
 
-    private func addVideoURLs(_ urls: [URL], downloadedTitle: String? = nil, credit: String? = nil) {
+    private func addVideoURLs(_ urls: [URL], downloadedTitle: String? = nil, credit: String? = nil,
+                              consumeSources: Bool = false) {
         busy = true
         engine.setPlaying(false)
         status = "Adding videos…"
@@ -148,12 +162,25 @@ final class AppModel: ObservableObject {
                     if state.selectedID == nil || downloadedTitle != nil { state.selectedID = id }
                     save()
                 } catch { failures.append("\(source.lastPathComponent): \(error.localizedDescription)") }
-                if downloadedTitle != nil { try? FileManager.default.removeItem(at: source) }
+                if downloadedTitle != nil || consumeSources { try? FileManager.default.removeItem(at: source) }
             }
             busy = false
             if selected != nil { loadSelected() } else { status = "Add a video to begin" }
+            if consumeSources && failures.isEmpty { status = "Pip added \(urls.count) video\(urls.count == 1 ? "" : "s") from the Drop Zone" }
             if !failures.isEmpty { message = failures.joined(separator: "\n\n") }
         }
+    }
+
+    private func scanDropZone() {
+        guard !busy, storageAvailable else { return }
+        let allowed = Set(["mp4", "mov", "m4v"])
+        let urls = (try? FileManager.default.contentsOfDirectory(at: dropZone, includingPropertiesForKeys: [.isRegularFileKey], options: [.skipsHiddenFiles])) ?? []
+        let videos = urls.filter {
+            allowed.contains($0.pathExtension.lowercased()) &&
+            ((try? $0.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) ?? false)
+        }
+        guard !videos.isEmpty else { return }
+        addVideoURLs(videos, consumeSources: true)
     }
 
     func select(_ id: UUID) {
@@ -224,6 +251,16 @@ final class AppModel: ObservableObject {
     }
     func setBatteryPause(_ enabled: Bool) { state.pauseOnBattery = enabled; save(); updatePlayback() }
     func setLowPowerPause(_ enabled: Bool) { state.pauseOnLowPower = enabled; save(); updatePlayback() }
+    var theme: InterfaceTheme { state.interfaceTheme ?? .system }
+    var accentTheme: AccentTheme { state.accentTheme ?? .moss }
+    var preferredColorScheme: ColorScheme? {
+        switch theme { case .system: return nil; case .dark: return .dark; case .light: return .light }
+    }
+    var accentColor: Color {
+        switch accentTheme { case .moss: return .mint; case .twilight: return .indigo; case .ember: return .orange }
+    }
+    func setTheme(_ value: InterfaceTheme) { state.interfaceTheme = value; save() }
+    func setAccentTheme(_ value: AccentTheme) { state.accentTheme = value; save() }
 
     private func onBattery() -> Bool {
         guard let info = IOPSCopyPowerSourcesInfo()?.takeRetainedValue(),
@@ -338,5 +375,8 @@ final class AppModel: ObservableObject {
     }
 
     func revealLibrary() { NSWorkspace.shared.open(root) }
-    func shutdown() { save(); engine.stop(); powerTimer?.invalidate() }
+    func revealDropZone() { NSWorkspace.shared.open(dropZone) }
+    func showPipGuide() { showingPipGuide = true }
+    func hidePipGuide() { showingPipGuide = false }
+    func shutdown() { save(); engine.stop(); powerTimer?.invalidate(); dropZoneTimer?.invalidate() }
 }
