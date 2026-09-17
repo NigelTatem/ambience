@@ -2,6 +2,7 @@
 set -euo pipefail
 cd -- "$(dirname -- "$0")"
 umask 077
+printf 'Ambience publisher v1.2.1\n'
 key_temp=''
 finish() {
     result=$?
@@ -44,10 +45,6 @@ if gh repo view "$repository" >/dev/null 2>&1; then
         exit 1
     fi
     remote_default="$(gh repo view "$repository" --json defaultBranchRef --jq '.defaultBranchRef.name // ""')"
-    if [ -n "$remote_default" ] && [ ! -d .git ]; then
-        printf 'The repository already has commits. Stop here and ask ChatGPT to update that repository instead of uploading a second copy.\n'
-        exit 1
-    fi
 fi
 if [ -d .git ]; then
     origin="$(git remote get-url origin 2>/dev/null || true)"
@@ -58,6 +55,15 @@ if [ -d .git ]; then
 elif git rev-parse --show-toplevel >/dev/null 2>&1; then
     printf 'Extract this project outside another Git repository, then run setup again.\n'
     exit 1
+fi
+
+# A fresh extracted release can safely become an update source for this same repository.
+# Fetching the existing main branch gives the new local folder the correct ancestry before it commits.
+if [ "$repo_exists" = true ] && [ ! -d .git ] && [ -n "$remote_default" ]; then
+    git init -b main
+    git remote add origin "https://github.com/$repository.git"
+    git fetch origin main
+    git reset --mixed origin/main
 fi
 
 sparkle_dir="$(bash scripts/fetch-sparkle.sh)"
@@ -102,6 +108,10 @@ git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push or
 printf '\nSource uploaded. GitHub is preparing a DRAFT release.\n'
 printf 'Test the DMG before publishing the draft as the Latest release.\n'
 open "https://github.com/$repository/actions"
+if [ "${1:-}" = --publish-only ]; then
+    printf '\nPublish-only complete. Your installed app was left untouched so you can test the update prompt after publishing the draft.\n'
+    exit 0
+fi
 printf '\nInstalling this updater-enabled build locally…\n'
 # This final installer retains your existing collection and asks you to quit a running copy.
 bash Build-and-Run.command --use-built

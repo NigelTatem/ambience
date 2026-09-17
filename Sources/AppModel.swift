@@ -169,6 +169,17 @@ final class AppModel: ObservableObject {
         select(state.clips[(index + 1) % state.clips.count].id)
     }
 
+    func previous() {
+        guard !busy, !state.clips.isEmpty else { return }
+        let index = state.clips.firstIndex(where: { $0.id == state.selectedID }) ?? 0
+        select(state.clips[(index - 1 + state.clips.count) % state.clips.count].id)
+    }
+
+    func restart() {
+        guard !busy, selected != nil else { return }
+        loadSelected()
+    }
+
     private func loadSelected() {
         guard let clip = selected else { engine.stop(); status = "Add a video to begin"; return }
         guard FileManager.default.fileExists(atPath: url(for: clip).path) else {

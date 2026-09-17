@@ -1,3 +1,9 @@
+Ambience 1.2.1 adds quick playback controls and a long-loop preset.
+
+- Previous-video and restart-loop buttons beside the playback controls.
+- A 10-minute loop preset for long ambience videos.
+- Publish-only setup mode so an older installed build can test the in-app update prompt.
+
 Ambience 1.2.0 adds built-in signed updates and a Discover tab.
 
 - Local MP4/MOV wallpapers with audio and adjustable loops.

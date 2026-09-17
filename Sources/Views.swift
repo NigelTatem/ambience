@@ -204,7 +204,9 @@ struct ClipEditor: View {
                         Text(clip.title).font(.title2.bold()).lineLimit(2)
                     }
                     Spacer()
+                    Button(action: model.previous) { Image(systemName: "backward.end.fill") }.help("Previous video")
                     Button(action: model.next) { Image(systemName: "forward.end.fill") }.help("Next video")
+                    Button(action: model.restart) { Image(systemName: "arrow.counterclockwise") }.help("Restart this loop")
                     Button(action: model.togglePause) {
                         Label(model.state.paused ? "Resume" : "Pause", systemImage: model.state.paused ? "play.fill" : "pause.fill")
                     }.buttonStyle(.borderedProminent).tint(.mint)
@@ -236,6 +238,7 @@ struct ClipEditor: View {
                     HStack {
                         Button("30 seconds") { preset(30) }
                         Button("2 minutes") { preset(120) }
+                        Button("10 minutes") { preset(600) }
                         Button("Whole video") { start = "0:00"; end = LoopTime.format(clip.duration) }
                     }.controlSize(.small)
                     Text("Loops keep the original audio. Choose matching endpoints for a smoother repeat.")
