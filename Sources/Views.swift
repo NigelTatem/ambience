@@ -1,6 +1,7 @@
 import SwiftUI
 import AVFoundation
 import AppKit
+import Combine
 
 struct LibraryView: View {
     @ObservedObject var model: AppModel
@@ -8,7 +9,8 @@ struct LibraryView: View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 18) {
                 HStack(spacing: 10) {
-                    Image(systemName: "leaf.fill").font(.title2).foregroundStyle(.mint)
+                    Image(systemName: "leaf.fill").font(.title2).foregroundStyle(model.accentColor)
+                    PipSprite(walking: model.status.hasPrefix("Playing")).frame(width: 34, height: 34)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Ambience").font(.title2.bold())
                         Text("A little world, on your desktop.").font(.caption).foregroundStyle(.secondary)
@@ -16,14 +18,15 @@ struct LibraryView: View {
                 }.padding(.horizontal, 16).padding(.top, 22)
                 Button(action: model.importVideos) {
                     Label("Add Videos", systemImage: "plus").frame(maxWidth: .infinity)
-                }.buttonStyle(.borderedProminent).tint(.mint).padding(.horizontal, 16)
+                }.buttonStyle(.borderedProminent).tint(model.accentColor).padding(.horizontal, 16)
+                Button("Meet Pip", action: model.showPipGuide).buttonStyle(.borderless).padding(.horizontal, 16)
                 ScrollView {
                     LazyVStack(spacing: 6) {
                         ForEach(model.state.clips) { clip in
                             Button { model.select(clip.id) } label: {
                                 HStack(spacing: 10) {
                                     Image(systemName: clip.id == model.state.selectedID ? "play.circle.fill" : "film")
-                                        .font(.title3).foregroundStyle(clip.id == model.state.selectedID ? Color.mint : Color.secondary)
+                                        .font(.title3).foregroundStyle(clip.id == model.state.selectedID ? model.accentColor : Color.secondary)
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text(clip.title).font(.system(size: 13, weight: .medium)).lineLimit(2)
                                         Text("\(LoopTime.format(clip.end - clip.start)) loop").font(.caption).foregroundStyle(.secondary)
@@ -41,26 +44,16 @@ struct LibraryView: View {
                     Toggle("Pause on battery", isOn: Binding(get: { model.state.pauseOnBattery }, set: model.setBatteryPause))
                     Toggle("Pause in Low Power Mode", isOn: Binding(get: { model.state.pauseOnLowPower }, set: model.setLowPowerPause))
                     Button("Show video folder", action: model.revealLibrary).buttonStyle(.link)
+                    Button("Open Drop Zone", action: model.revealDropZone).buttonStyle(.link)
                 }.font(.caption).toggleStyle(.checkbox).padding(16)
             }.frame(width: 265)
                 .background(Color(nsColor: .windowBackgroundColor))
             Divider()
             Group {
-                if let clip = model.selected {
+                if let clip = model.selected, !model.showingPipGuide {
                     ClipEditor(model: model, clip: clip).id(clip.id)
                 } else {
-                    VStack(spacing: 18) {
-                        Image(systemName: "play.rectangle.on.rectangle").font(.system(size: 52)).foregroundStyle(.mint)
-                        Text("Your desktop, somewhere else.").font(.title.bold())
-                        Text("Add a Terraria ambience video, or any MP4 you love.\nPick a section, turn up the ambience, and let it loop.")
-                            .multilineTextAlignment(.center).foregroundStyle(.secondary)
-                        Button("Choose Your First Video", action: model.importVideos)
-                            .buttonStyle(.borderedProminent).tint(.mint)
-                        Link("Open your Terraria video ↗", destination: URL(string: "https://youtu.be/h5wBQzhqLYQ")!)
-                            .font(.caption)
-                        Text("Videos stay on your Mac. No account or subscription.")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }.frame(maxWidth: .infinity, maxHeight: .infinity).padding(30)
+                    PipTutorial(model: model)
                 }
             }.frame(maxWidth: .infinity, maxHeight: .infinity)
         }
@@ -73,6 +66,88 @@ struct LibraryView: View {
             }
         }
         .onAppear { model.refreshLogin() }
+    }
+}
+
+struct PipTutorial: View {
+    @ObservedObject var model: AppModel
+    @State private var step = 0
+    private let steps = [
+        ("Welcome to your little world", "I'm Pip. I keep your desktop worlds playing while you work."),
+        ("Pip's Drop Zone", "Drag MP4 or MOV videos into the Drop Zone. Pip notices and adds them automatically."),
+        ("Make it yours", "Pick your loop, set the framing, and let the ambience run behind your icons.")
+    ]
+
+    var body: some View {
+        VStack(spacing: 24) {
+            HStack {
+                ForEach(0..<steps.count, id: \.self) { index in
+                    Capsule().fill(index == step ? model.accentColor : Color.secondary.opacity(0.22))
+                        .frame(width: index == step ? 32 : 10, height: 6)
+                        .animation(.spring(response: 0.3), value: step)
+                }
+            }
+            ZStack(alignment: .bottom) {
+                RoundedRectangle(cornerRadius: 24).fill(model.accentColor.opacity(0.09))
+                    .frame(maxWidth: 520, minHeight: 210)
+                PipSprite(walking: step == 1)
+                    .frame(width: 172, height: 172)
+                    .offset(x: step == 0 ? -105 : step == 1 ? 0 : 105, y: 8)
+                    .animation(.spring(response: 0.6, dampingFraction: 0.72), value: step)
+            }
+            VStack(spacing: 8) {
+                Text(steps[step].0).font(.title.bold())
+                Text(steps[step].1).multilineTextAlignment(.center).foregroundStyle(.secondary)
+                    .frame(maxWidth: 420)
+            }
+            HStack(spacing: 10) {
+                if step > 0 { Button("Back") { step -= 1 } }
+                if step == 1 {
+                    Button("Open Drop Zone", action: model.revealDropZone).buttonStyle(.bordered)
+                }
+                Button(step == steps.count - 1 ? "Choose a Video" : "Next") {
+                    if step == steps.count - 1 { model.hidePipGuide(); model.importVideos } else { step += 1 }
+                }.buttonStyle(.borderedProminent).tint(model.accentColor)
+            }
+            Text("Tip: use the Drop Zone for files from AirDrop or your Downloads folder.")
+                .font(.caption).foregroundStyle(.secondary)
+        }.frame(maxWidth: .infinity, maxHeight: .infinity).padding(34)
+    }
+}
+
+struct PipSprite: View {
+    let walking: Bool
+    @State private var frame = 0
+    private let frameRects = [
+        NSRect(x: 0, y: 0, width: 128, height: 144),
+        NSRect(x: 128, y: 0, width: 125, height: 144)
+    ]
+
+    var body: some View {
+        Group {
+            if let image = spriteImage(index: walking ? 1 : 0) {
+                Image(nsImage: image).resizable().interpolation(.none).scaledToFit()
+                    .offset(y: walking && frame == 1 ? -4 : 0)
+                    .animation(.linear(duration: 0.16), value: frame)
+            }
+        }
+        .onReceive(Timer.publish(every: walking ? 0.18 : 0.7, on: .main, in: .common).autoconnect()) { _ in
+            frame = walking ? (frame + 1) % 2 : 0
+        }
+        .accessibilityLabel("Pip, Ambience's bear guide")
+    }
+
+    private func spriteImage(index: Int) -> NSImage? {
+        guard let source = NSImage(named: "PipBear") ?? PipBearAsset.image,
+              frameRects.indices.contains(index) else { return nil }
+        let topRect = frameRects[index]
+        let sourceRect = NSRect(x: topRect.minX, y: source.size.height - topRect.maxY,
+                                width: topRect.width, height: topRect.height)
+        let image = NSImage(size: sourceRect.size)
+        image.lockFocus()
+        source.draw(in: NSRect(origin: .zero, size: image.size), from: sourceRect, operation: .sourceOver, fraction: 1)
+        image.unlockFocus()
+        return image
     }
 }
 
