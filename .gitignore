@@ -1,0 +1,16 @@
+.DS_Store
+__pycache__/
+*.pyc
+.cache/
+build/
+dist/
+*.pem
+*.p12
+*.key
+private-key*
+*private-key*
+.env*
+*.mp4
+*.mov
+*.dmg
+*.zip

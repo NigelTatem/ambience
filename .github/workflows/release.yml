@@ -1,0 +1,45 @@
+name: Package release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: ambience-release
+  cancel-in-progress: false
+jobs:
+  release:
+    if: github.repository == 'NigelTatem/ambience'
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+      - name: Build universal app and verify signed update
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: bash scripts/package-release.sh
+      - name: Create a draft release for testing
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' Info.plist)
+          tag="v$version"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            draft=$(gh release view "$tag" --json isDraft --jq .isDraft)
+            if [ "$draft" != true ]; then
+              echo 'This version is already published. Bump both version fields before making a new release.'
+              exit 1
+            fi
+            target=$(gh release view "$tag" --json targetCommitish --jq .targetCommitish)
+            if [ "$target" != "$GITHUB_SHA" ]; then
+              echo 'The existing draft belongs to another commit. Review/delete that draft or bump the version.'
+              exit 1
+            fi
+          else
+            gh release create "$tag" --draft --target "$GITHUB_SHA" --title "Ambience $version" --notes-file RELEASE-NOTES.md
+          fi
+          gh release upload "$tag" "dist/Ambience-$version.dmg" "dist/Ambience-$version.zip" dist/appcast.xml dist/SHA256SUMS.txt --clobber
+          echo 'Draft ready. Test the DMG, then publish the release as Latest to enable the update feed.'
