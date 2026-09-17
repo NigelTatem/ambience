@@ -15,6 +15,8 @@ struct AppTabs: View {
                 .tabItem { Label("Discover", systemImage: "sparkles") }
             settings.tabItem { Label("Settings", systemImage: "gearshape") }
         }.padding(8).frame(minWidth: 910, minHeight: 730)
+        .tint(model.accentColor)
+        .preferredColorScheme(model.preferredColorScheme)
         .alert("Ambience", isPresented: Binding(get: { model.message != nil }, set: { if !$0 { model.message = nil } })) {
             Button("OK") { model.message = nil }
         } message: { Text(model.message ?? "") }
@@ -23,6 +25,17 @@ struct AppTabs: View {
     private var settings: some View {
         VStack(alignment: .leading, spacing: 22) {
             Text("Make yourself at home").font(.largeTitle.bold())
+            GroupBox("Appearance") {
+                VStack(alignment: .leading, spacing: 14) {
+                    Picker("Mode", selection: Binding(get: { model.theme }, set: { model.setTheme($0) })) {
+                        ForEach(InterfaceTheme.allCases) { Text($0.title).tag($0) }
+                    }.pickerStyle(.segmented)
+                    Picker("Color", selection: Binding(get: { model.accentTheme }, set: { model.setAccentTheme($0) })) {
+                        ForEach(AccentTheme.allCases) { Text($0.title).tag($0) }
+                    }.pickerStyle(.segmented)
+                    Text("Choose a calm look for Pip's little world.").font(.caption).foregroundStyle(.secondary)
+                }.frame(maxWidth: .infinity, alignment: .leading).padding(12)
+            }
             GroupBox("Playback & startup") {
                 VStack(alignment: .leading, spacing: 14) {
                     Toggle("Launch at login", isOn: Binding(get: { model.loginEnabled }, set: { model.setLogin($0) }))
@@ -42,6 +55,8 @@ struct AppTabs: View {
                 }.frame(maxWidth: .infinity, alignment: .leading).padding(12)
             }
             Button("Show downloaded videos", action: model.revealLibrary)
+            Button("Open Ambience Drop Zone", action: model.revealDropZone)
+            Button("Replay Pip's tour", action: model.showPipGuide)
             Link("Project & downloads ↗", destination: URL(string: "https://github.com/NigelTatem/ambience")!)
             Text("Free to use. No account needed in Ambience.").font(.caption).foregroundStyle(.secondary)
             Spacer()
