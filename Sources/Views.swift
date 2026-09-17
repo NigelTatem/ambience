@@ -106,7 +106,7 @@ struct PipTutorial: View {
                     Button("Open Drop Zone", action: model.revealDropZone).buttonStyle(.bordered)
                 }
                 Button(step == steps.count - 1 ? "Choose a Video" : "Next") {
-                    if step == steps.count - 1 { model.hidePipGuide(); model.importVideos } else { step += 1 }
+                    if step == steps.count - 1 { model.hidePipGuide(); model.importVideos() } else { step += 1 }
                 }.buttonStyle(.borderedProminent).tint(model.accentColor)
             }
             Text("Tip: use the Drop Zone for files from AirDrop or your Downloads folder.")
