@@ -14,6 +14,7 @@ bundle="$stage/Ambience.app"
 mkdir -p "$bundle/Contents/MacOS" "$bundle/Contents/Resources" "$bundle/Contents/Frameworks"
 cp Info.plist "$bundle/Contents/Info.plist"
 cp Resources/catalog.json "$bundle/Contents/Resources/catalog.json"
+if [ -f Resources/PipBear.png ]; then cp Resources/PipBear.png "$bundle/Contents/Resources/PipBear.png"; fi
 ditto "$sparkle_dir/Sparkle.framework" "$bundle/Contents/Frameworks/Sparkle.framework"
 if [ -f "$sparkle_dir/LICENSE" ]; then cp "$sparkle_dir/LICENSE" "$bundle/Contents/Resources/Sparkle-LICENSE.txt"; fi
 if [ -f Config/update-public-key.txt ]; then
