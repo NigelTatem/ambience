@@ -1,3 +1,9 @@
+Ambience 1.3.0 adds Pip, Ambience's animated pixel-bear guide, and a smoother way to add videos.
+
+- Drop Zone: drag MP4, MOV, or M4V files into it and Pip imports them automatically.
+- A replayable, cozy first-run tutorial led by Pip.
+- System, light, and dark appearance modes with moss, twilight, and ember accents.
+
 Ambience 1.2.1 adds quick playback controls and a long-loop preset.
 
 - Previous-video and restart-loop buttons beside the playback controls.
