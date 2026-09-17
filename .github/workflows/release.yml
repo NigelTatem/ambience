@@ -1,7 +1,8 @@
 name: Package release
 on:
   push:
-    tags: ['v*']
+    branches: [main]
+    paths: ['Info.plist']
   workflow_dispatch:
 permissions:
   contents: write
@@ -21,16 +22,25 @@ jobs:
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: bash scripts/package-release.sh
-      - name: Publish signed release
+      - name: Create a draft release for testing
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           version=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' Info.plist)
           tag="v$version"
           if gh release view "$tag" >/dev/null 2>&1; then
-            gh release edit "$tag" --title "Ambience $version" --notes-file RELEASE-NOTES.md
+            draft=$(gh release view "$tag" --json isDraft --jq .isDraft)
+            if [ "$draft" != true ]; then
+              echo 'This version is already published. Bump both version fields before making a new release.'
+              exit 1
+            fi
+            target=$(gh release view "$tag" --json targetCommitish --jq .targetCommitish)
+            if [ "$target" != "$GITHUB_SHA" ]; then
+              echo 'The existing draft belongs to another commit. Review/delete that draft or bump the version.'
+              exit 1
+            fi
           else
-            gh release create "$tag" --target "$GITHUB_SHA" --title "Ambience $version" --notes-file RELEASE-NOTES.md
+            gh release create "$tag" --draft --target "$GITHUB_SHA" --title "Ambience $version" --notes-file RELEASE-NOTES.md
           fi
           gh release upload "$tag" "dist/Ambience-$version.dmg" "dist/Ambience-$version.zip" dist/appcast.xml dist/SHA256SUMS.txt --clobber
-          echo "Release $tag is published with its signed update feed."
+          echo 'Draft ready. Test the DMG, then publish the release as Latest to enable the update feed.'
