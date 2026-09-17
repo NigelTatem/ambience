@@ -118,16 +118,17 @@ struct PipTutorial: View {
 struct PipSprite: View {
     let walking: Bool
     @State private var frame = 0
-    private let frameRects = [
+    private static let frameRects = [
         NSRect(x: 0, y: 0, width: 128, height: 144),
         NSRect(x: 128, y: 0, width: 125, height: 144)
     ]
+    private static let sprites: [NSImage?] = [makeSprite(index: 0), makeSprite(index: 1)]
 
     var body: some View {
         Group {
-            if let image = spriteImage(index: walking ? 1 : 0) {
+            if let image = Self.sprites[walking ? 1 : 0] {
                 Image(nsImage: image).resizable().interpolation(.none).scaledToFit()
-                    .offset(y: walking && frame == 1 ? -4 : 0)
+                    .offset(x: walking && frame == 1 ? 2 : 0)
                     .animation(.linear(duration: 0.16), value: frame)
             }
         }
@@ -137,10 +138,10 @@ struct PipSprite: View {
         .accessibilityLabel("Pip, Ambience's bear guide")
     }
 
-    private func spriteImage(index: Int) -> NSImage? {
+    private static func makeSprite(index: Int) -> NSImage? {
         guard let source = NSImage(named: "PipBear") ?? PipBearAsset.image,
-              frameRects.indices.contains(index) else { return nil }
-        let topRect = frameRects[index]
+              Self.frameRects.indices.contains(index) else { return nil }
+        let topRect = Self.frameRects[index]
         let sourceRect = NSRect(x: topRect.minX, y: source.size.height - topRect.maxY,
                                 width: topRect.width, height: topRect.height)
         let image = NSImage(size: sourceRect.size)
