@@ -1,4 +1,4 @@
-Ambience 1.3.2 adds Pip, Ambience's animated pixel-bear guide, and a smoother way to add videos.
+Ambience 1.3.3 fixes Pip's pixel animation and adds Pip, Ambience's animated pixel-bear guide, and a smoother way to add videos.
 
 - Drop Zone: drag MP4, MOV, or M4V files into it and Pip imports them automatically.
 - A replayable, cozy first-run tutorial led by Pip.
